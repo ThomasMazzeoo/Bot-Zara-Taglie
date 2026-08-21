@@ -1,0 +1,67 @@
+name: Aggiungi Prodotto Zara
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'URL del prodotto Zara (es. https://www.zara.com/...)'
+        required: true
+        type: string
+      taglie:
+        description: 'Taglie (es. S, M, L oppure TUTTE)'
+        required: true
+        default: 'TUTTE'
+        type: string
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  add-product:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install schedule curl_cffi requests
+
+      - name: Add product and check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python main.py --add "${{ inputs.url }}" --sizes "${{ inputs.taglie }}"
+          
+      - name: Commit changes to prodotti.json
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add prodotti.json
+          git diff-index --quiet HEAD || git commit -m "Aggiunto nuovo prodotto da Actions"
+          git push
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './public'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

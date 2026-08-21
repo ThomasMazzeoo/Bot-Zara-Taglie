@@ -819,6 +819,80 @@ def aggiungi_prodotto():
     salva_configurazione()
 
 
+def aggiungi_prodotto_cli(url_pagina, taglie_input):
+    """Aggiunge prodotto da riga di comando (GitHub Actions)."""
+    global prodotti_monitorati
+    
+    print(f"    📡 Analisi URL: {url_pagina}")
+    
+    seo_id = estrai_seo_product_id(url_pagina)
+    if not seo_id:
+        print("    ❌ Impossibile estrarre l'ID prodotto dall'URL")
+        return False
+        
+    details = fetch_product_details(seo_id)
+    if not details or not details["colori"]:
+        print("    ❌ Impossibile scaricare dettagli o nessun colore")
+        return False
+        
+    nome = details["nome"]
+    color_product_id_from_url = estrai_color_product_id(url_pagina)
+    selected_color = details["colori"][0]
+    
+    if color_product_id_from_url:
+        for c in details["colori"]:
+            if c["product_id"] == color_product_id_from_url:
+                selected_color = c
+                break
+                
+    if not selected_color.get("taglie"):
+        print("    ❌ Nessuna taglia disponibile per questo colore")
+        return False
+        
+    taglie_nomi = [t["nome"] for t in selected_color["taglie"]]
+    taglie_upper = [t.upper() for t in taglie_nomi]
+    taglie_selezionate = []
+    
+    taglie_input_upper = taglie_input.strip().upper()
+    
+    if taglie_input_upper in ['TUTTE', 'ALL', '*']:
+        taglie_selezionate = taglie_nomi.copy()
+    else:
+        for t in taglie_input_upper.replace(' ', ',').split(','):
+            t = t.strip()
+            if t in taglie_upper:
+                idx = taglie_upper.index(t)
+                nome_reale = taglie_nomi[idx]
+                if nome_reale not in taglie_selezionate:
+                    taglie_selezionate.append(nome_reale)
+                    
+    if not taglie_selezionate:
+        print("    ⚠️ Nessuna taglia valida, prendo tutte le taglie")
+        taglie_selezionate = taglie_nomi.copy()
+        
+    sku_map = {}
+    for t in selected_color["taglie"]:
+        sku_map[str(t["sku"])] = t["nome"]
+        
+    product_id = f"prod_{len(prodotti_monitorati) + 1}_{int(time.time())}"
+    
+    prodotti_monitorati[product_id] = {
+        "nome": nome,
+        "url_pagina": url_pagina,
+        "seo_product_id": seo_id,
+        "color_product_id": selected_color["product_id"],
+        "color_name": selected_color["nome"],
+        "taglie": taglie_selezionate,
+        "sku_taglia_map": sku_map,
+        "attivo": True,
+        "data_aggiunta": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    salva_configurazione()
+    print(f"    ✅ Aggiunto: {nome} [{selected_color['nome']}] -> {taglie_selezionate}")
+    return True
+
+
 # ============================================================
 # 📋 LISTA PRODOTTI
 # ============================================================
@@ -1597,6 +1671,41 @@ if __name__ == "__main__":
             sys.exit(1)
 
         avvia_monitoraggio()
+        
+    # Avvio con --add → aggiunta da CLI
+    elif len(sys.argv) > 1 and sys.argv[1] == "--add":
+        print("🚀 Avvio aggiunta rapida (CLI)...\n")
+        carica_configurazione()
+        
+        try:
+            url_idx = sys.argv.index("--add") + 1
+            url = sys.argv[url_idx]
+            
+            taglie = "TUTTE"
+            if "--sizes" in sys.argv:
+                size_idx = sys.argv.index("--sizes") + 1
+                taglie = sys.argv[size_idx]
+                
+            if aggiungi_prodotto_cli(url, taglie):
+                # Esegue un check per generare anche l'HTML
+                controlla_tutti_prodotti(da_actions=True)
+                sys.exit(0)
+            else:
+                sys.exit(1)
+        except Exception as e:
+            print(f"❌ Errore argomenti: {e}")
+            sys.exit(1)
+            
+    # Avvio con --gui → Web GUI locale
+    elif len(sys.argv) > 1 and sys.argv[1] == "--gui":
+        try:
+            import server
+            server.run_gui()
+        except ImportError as e:
+            print(f"❌ Errore: {e}")
+            print("💡 Assicurati di aver installato Flask: pip install flask")
+            sys.exit(1)
+            
     else:
         # Avvio normale con menu
         try:
