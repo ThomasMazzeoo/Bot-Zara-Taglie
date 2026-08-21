@@ -386,6 +386,9 @@ HTML_TEMPLATE = """
                             <span class="tag" style="background: rgba(255,255,255,0.05); color: #94a3b8; border-color: rgba(255,255,255,0.1);">🕒 ${dataAggiunta.split(' ')[0]}</span>
                         </div>
                         <div class="card-actions">
+                            <button onclick="editSizes('${id}', '${taglie}')" style="background: rgba(59, 130, 246, 0.1); color: var(--primary); border: 1px solid rgba(59, 130, 246, 0.2); padding: 8px 16px; font-size: 13px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-right: 8px; transition: all 0.2s;">
+                                ✏️ Taglie
+                            </button>
                             <button class="btn-danger" onclick="removeProduct('${id}')" style="padding: 8px 16px; font-size: 13px;">
                                 ❌ Rimuovi
                             </button>
@@ -431,6 +434,29 @@ HTML_TEMPLATE = """
                 showToast("Errore di rete", true);
             } finally {
                 showLoading(false);
+            }
+        }
+        
+        async function editSizes(id, currentSizes) {
+            const newSizes = prompt("Modifica le taglie da monitorare (es. S, M, L oppure TUTTE):", currentSizes);
+            if (newSizes === null || newSizes.trim() === '') return;
+            
+            try {
+                const res = await fetch('/api/update_sizes', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ id, sizes: newSizes })
+                });
+                
+                if (res.ok) {
+                    showToast("Taglie aggiornate!");
+                    await loadProducts();
+                } else {
+                    const data = await res.json();
+                    showToast("Errore: " + (data.error || "Impossibile aggiornare"), true);
+                }
+            } catch (err) {
+                showToast("Errore di rete", true);
             }
         }
 
@@ -490,6 +516,44 @@ def remove_product():
         main.salva_configurazione()
         return jsonify({"status": "success"})
     return jsonify({"status": "error"}), 404
+    
+@app.route('/api/update_sizes', methods=['POST'])
+def update_sizes():
+    data = request.json
+    prod_id = data.get('id')
+    sizes_input = data.get('sizes')
+    
+    if prod_id in main.prodotti_monitorati:
+        info = main.prodotti_monitorati[prod_id]
+        
+        # Le taglie disponibili reali (tutte le taglie di questo colore)
+        taglie_disponibili_nomi = list(info.get('sku_taglia_map', {}).values())
+        if not taglie_disponibili_nomi:
+            return jsonify({"status": "error", "error": "Mappa taglie non disponibile per questo prodotto"}), 400
+            
+        taglie_upper = [t.upper() for t in taglie_disponibili_nomi]
+        taglie_selezionate = []
+        sizes_input_upper = sizes_input.strip().upper()
+        
+        if sizes_input_upper in ['TUTTE', 'ALL', '*']:
+            taglie_selezionate = taglie_disponibili_nomi.copy()
+        else:
+            for t in sizes_input_upper.replace(' ', ',').split(','):
+                t = t.strip()
+                if t in taglie_upper:
+                    idx = taglie_upper.index(t)
+                    nome_reale = taglie_disponibili_nomi[idx]
+                    if nome_reale not in taglie_selezionate:
+                        taglie_selezionate.append(nome_reale)
+                        
+        if not taglie_selezionate:
+            return jsonify({"status": "error", "error": f"Nessuna taglia valida. Disponibili: {', '.join(taglie_disponibili_nomi)}"}), 400
+            
+        main.prodotti_monitorati[prod_id]['taglie'] = taglie_selezionate
+        main.salva_configurazione()
+        return jsonify({"status": "success", "taglie": taglie_selezionate})
+        
+    return jsonify({"status": "error", "error": "Prodotto non trovato"}), 404
 
 def run_gui():
     print("🚀 Avvio Web GUI locale...")
