@@ -1,0 +1,19 @@
+# ===== File generati =====
+__pycache__/
+*.pyc
+*.pyo
+*.spec
+*.exe
+dist/
+build/
+
+# ===== Credenziali e configurazione privata =====
+zara_monitor_config.json
+
+# ===== Driver browser (pesante, non serve nel repo) =====
+msedgedriver.exe
+chromedriver.exe
+
+# ===== File temporanei =====
+*.log
+*.tmp

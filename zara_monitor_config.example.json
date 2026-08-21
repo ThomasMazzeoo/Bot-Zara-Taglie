@@ -1,0 +1,8 @@
+{
+    "telegram": {
+        "bot_token": "IL_TUO_BOT_TOKEN_QUI",
+        "chat_id": "IL_TUO_CHAT_ID_QUI",
+        "attivo": true
+    },
+    "prodotti": {}
+}
