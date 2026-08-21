@@ -858,13 +858,17 @@ def aggiungi_prodotto_cli(url_pagina, taglie_input):
     if taglie_input_upper in ['TUTTE', 'ALL', '*']:
         taglie_selezionate = taglie_nomi.copy()
     else:
+        import re
         for t in taglie_input_upper.replace(' ', ',').split(','):
             t = t.strip()
-            if t in taglie_upper:
-                idx = taglie_upper.index(t)
-                nome_reale = taglie_nomi[idx]
-                if nome_reale not in taglie_selezionate:
-                    taglie_selezionate.append(nome_reale)
+            if not t: continue
+            
+            for idx, real_size_upper in enumerate(taglie_upper):
+                if t == real_size_upper or re.search(r'\b' + re.escape(t) + r'\b', real_size_upper):
+                    nome_reale = taglie_nomi[idx]
+                    if nome_reale not in taglie_selezionate:
+                        taglie_selezionate.append(nome_reale)
+                    break
                     
     if not taglie_selezionate:
         print("    ⚠️ Nessuna taglia valida, prendo tutte le taglie")

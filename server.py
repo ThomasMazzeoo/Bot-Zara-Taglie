@@ -538,13 +538,18 @@ def update_sizes():
         if sizes_input_upper in ['TUTTE', 'ALL', '*']:
             taglie_selezionate = taglie_disponibili_nomi.copy()
         else:
+            import re
             for t in sizes_input_upper.replace(' ', ',').split(','):
                 t = t.strip()
-                if t in taglie_upper:
-                    idx = taglie_upper.index(t)
-                    nome_reale = taglie_disponibili_nomi[idx]
-                    if nome_reale not in taglie_selezionate:
-                        taglie_selezionate.append(nome_reale)
+                if not t: continue
+                
+                for idx, real_size_upper in enumerate(taglie_upper):
+                    # Match exact or as a distinct word inside the size string (e.g., "40" matches "IT 40 (EUR 34)")
+                    if t == real_size_upper or re.search(r'\b' + re.escape(t) + r'\b', real_size_upper):
+                        nome_reale = taglie_disponibili_nomi[idx]
+                        if nome_reale not in taglie_selezionate:
+                            taglie_selezionate.append(nome_reale)
+                        break
                         
         if not taglie_selezionate:
             return jsonify({"status": "error", "error": f"Nessuna taglia valida. Disponibili: {', '.join(taglie_disponibili_nomi)}"}), 400
