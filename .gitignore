@@ -17,3 +17,6 @@ chromedriver.exe
 # ===== File temporanei =====
 *.log
 *.tmp
+
+# ===== GitHub Pages Output =====
+public/

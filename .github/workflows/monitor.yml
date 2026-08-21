@@ -2,8 +2,17 @@ name: Zara Monitor Bot
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Esegue ogni 15 minuti
-  workflow_dispatch:        # Permette l'avvio manuale dal tab Actions
+    - cron: '*/5 * * * *'  # Esegue ogni 5 minuti
+  workflow_dispatch:       # Permette l'avvio manuale dal tab Actions
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   check-availability:
@@ -29,3 +38,15 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python main.py --check
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './public'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

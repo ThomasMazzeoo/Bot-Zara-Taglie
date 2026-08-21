@@ -1112,11 +1112,11 @@ def controlla_prodotto(prod_id, info):
 
     if not info.get('attivo', True):
         print(f"    ⏸️  Disattivato")
-        return None
+        return False, []
 
     if not color_product_id:
         print(f"    ❌ Nessun color_product_id configurato")
-        return False
+        return False, []
 
     # Se la mappa SKU è vuota, prova a ricostruirla
     if not sku_taglia_map:
@@ -1159,6 +1159,7 @@ def controlla_prodotto(prod_id, info):
         print(f"    📊 Stato:")
 
         disponibili = []
+        taglie_stato_lista = []
 
         for sku_info in skus:
             sku_id = str(sku_info.get("sku", ""))
@@ -1174,6 +1175,12 @@ def controlla_prodotto(prod_id, info):
 
             if is_cercata and avail in ["in_stock", "low_on_stock"]:
                 disponibili.append((taglia, avail))
+                
+            taglie_stato_lista.append({
+                "nome": taglia,
+                "stato": avail,
+                "is_cercata": is_cercata
+            })
 
             print(f"       {simbolo} {taglia:>4}{marcatore}")
 
@@ -1194,24 +1201,156 @@ def controlla_prodotto(prod_id, info):
             # Notifica Telegram
             invia_notifica_disponibile_telegram(nome, taglie_nomi, url_pagina)
 
-            return True
+            return True, taglie_stato_lista
         else:
             print(f"    ╔════════════════════════════════════════════════════╗")
             print(f"    ║  ❌ Nessuna taglia cercata disponibile             ║")
             print(f"    ╚════════════════════════════════════════════════════╝")
 
-            return False
+            return False, taglie_stato_lista
 
     except Exception as e:
         print(f"    ❌ Errore: {e}")
-        return False
+        return False, []
 
 
 # ============================================================
 # 🔄 CONTROLLO TUTTI
 # ============================================================
 
-def controlla_tutti_prodotti():
+def genera_dashboard_html(risultati, timestamp):
+    os.makedirs('public', exist_ok=True)
+    
+    html = f"""<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zara Monitor Dashboard</title>
+    <style>
+        :root {{
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --success: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
+            --border: #334155;
+        }}
+        * {{ box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }}
+        body {{ background: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; line-height: 1.5; }}
+        .container {{ max-width: 1000px; margin: 0 auto; }}
+        .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid var(--border); padding-bottom: 20px; flex-wrap: wrap; gap: 15px; }}
+        .header h1 {{ margin: 0; font-size: 24px; display: flex; align-items: center; gap: 10px; }}
+        .time {{ color: var(--text-muted); font-size: 14px; background: var(--card-bg); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); }}
+        .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }}
+        .card {{ background: var(--card-bg); border-radius: 12px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s; }}
+        .card:hover {{ transform: translateY(-2px); border-color: var(--text-muted); }}
+        .card-header {{ display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; gap: 10px; }}
+        .card-title {{ margin: 0; font-size: 16px; font-weight: 600; line-height: 1.3; }}
+        .card-color {{ color: var(--text-muted); font-size: 13px; margin-top: 4px; }}
+        .status-badge {{ padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }}
+        .status-badge.active {{ background: rgba(34, 197, 94, 0.1); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.2); }}
+        .status-badge.inactive {{ background: rgba(148, 163, 184, 0.1); color: var(--text-muted); border: 1px solid rgba(148, 163, 184, 0.2); }}
+        .sizes-container {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }}
+        .size-badge {{ padding: 6px 10px; border-radius: 6px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); background: rgba(0,0,0,0.2); display: flex; align-items: center; gap: 6px; }}
+        .size-badge.cercata {{ border-color: var(--accent); }}
+        .dot {{ width: 8px; height: 8px; border-radius: 50%; }}
+        .dot.in_stock {{ background: var(--success); box-shadow: 0 0 8px var(--success); }}
+        .dot.low_on_stock {{ background: var(--warning); }}
+        .dot.back_soon {{ background: var(--warning); opacity: 0.5; }}
+        .dot.out_of_stock {{ background: var(--danger); }}
+        .btn {{ display: inline-block; background: var(--text-main); color: var(--bg-color); text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; transition: opacity 0.2s; }}
+        .btn:hover {{ opacity: 0.9; }}
+        .link-icon {{ color: var(--text-muted); text-decoration: none; }}
+        .link-icon:hover {{ color: var(--accent); }}
+        .legend {{ margin-top: 40px; padding: 15px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); font-size: 13px; display: flex; gap: 20px; flex-wrap: wrap; color: var(--text-muted); }}
+        .legend-item {{ display: flex; align-items: center; gap: 8px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛍️ Zara Monitor</h1>
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <span class="time">Ultimo agg: {timestamp}</span>
+                <a href="https://github.com/ThomasMazzeoo/Bot-Zara-Taglie/edit/main/prodotti.json" target="_blank" class="btn">Gestisci Prodotti</a>
+            </div>
+        </div>
+        
+        <div class="grid">
+"""
+    for prod_id, r in risultati.items():
+        info = r['info']
+        attivo = info.get('attivo', True)
+        nome = info.get('nome', 'Sconosciuto')
+        colore = info.get('color_name', '')
+        url = info.get('url_pagina', '#')
+        
+        status_class = "active" if attivo else "inactive"
+        status_text = "ATTIVO" if attivo else "INATTIVO"
+        
+        html += f"""
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h3 class="card-title">
+                            <a href="{url}" target="_blank" class="link-icon">🔗</a> 
+                            {nome}
+                        </h3>
+                        <div class="card-color">🎨 {colore}</div>
+                    </div>
+                    <span class="status-badge {status_class}">{status_text}</span>
+                </div>
+                <div class="sizes-container">
+        """
+        
+        if non_taglie := r.get('taglie_stato', []):
+            for t in non_taglie:
+                nome_taglia = t['nome']
+                stato = t['stato']
+                cercata = t['is_cercata']
+                
+                cercata_class = "cercata" if cercata else ""
+                dot_class = stato if stato in ['in_stock', 'low_on_stock', 'back_soon'] else 'out_of_stock'
+                
+                html += f"""
+                    <div class="size-badge {cercata_class}" title="Stato: {stato}{' (Monitorata)' if cercata else ''}">
+                        <div class="dot {dot_class}"></div>
+                        {nome_taglia}
+                    </div>
+                """
+        else:
+            html += """<div class="card-color">Nessun dato SKU. Attendi il prossimo controllo.</div>"""
+            
+        html += """
+                </div>
+            </div>
+        """
+
+    html += """
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item"><div class="dot in_stock"></div> Disponibile</div>
+            <div class="legend-item"><div class="dot low_on_stock"></div> Pochi pezzi</div>
+            <div class="legend-item"><div class="dot back_soon"></div> Torna presto</div>
+            <div class="legend-item"><div class="dot out_of_stock"></div> Esaurito</div>
+            <div class="legend-item"><div class="size-badge cercata" style="padding: 2px 6px;">Bordo blu</div> Taglia monitorata</div>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+    with open('public/index.html', 'w', encoding='utf-8') as f:
+        f.write(html)
+    print(f"    🌐 Dashboard HTML generata in public/index.html")
+
+
+def controlla_tutti_prodotti(da_actions=False):
     """Controlla tutti i prodotti."""
 
     if not prodotti_monitorati:
@@ -1226,11 +1365,26 @@ def controlla_tutti_prodotti():
     print(f"📦 Prodotti: {attivi}/{len(prodotti_monitorati)}")
     print(f"{'═' * 70}")
 
-    disponibili = sum(1 for prod_id, info in prodotti_monitorati.items() if controlla_prodotto(prod_id, info))
+    disponibili = 0
+    risultati_dashboard = {}
+
+    for prod_id, info in prodotti_monitorati.items():
+        is_avail, taglie_stato = controlla_prodotto(prod_id, info)
+        if is_avail:
+            disponibili += 1
+            
+        risultati_dashboard[prod_id] = {
+            "info": info,
+            "is_avail": is_avail,
+            "taglie_stato": taglie_stato
+        }
 
     print(f"\n{'─' * 70}")
     print(f"📊 RIEPILOGO: {disponibili}/{attivi} disponibili")
     print(f"{'─' * 70}")
+    
+    if da_actions:
+        genera_dashboard_html(risultati_dashboard, timestamp)
 
 
 def controlla_con_ritardo():
@@ -1430,7 +1584,7 @@ if __name__ == "__main__":
             print("⚠️ Nessun prodotto da controllare!")
             sys.exit(0)
 
-        controlla_tutti_prodotti()
+        controlla_tutti_prodotti(da_actions=True)
         sys.exit(0)
 
     # Avvio con --auto → monitoraggio diretto in loop
