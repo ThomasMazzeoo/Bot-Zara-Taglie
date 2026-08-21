@@ -37,5 +37,66 @@
             "495714673": "L",
             "495714676": "XL"
         }
+    },
+    "prod_3_1787315730": {
+        "nome": "GIUBBOTTO PIUMINO SCI 90% PIUMINO - 10% PIUMA",
+        "url_pagina": "https://www.zara.com/it/it/piumino-da-sci-90-piumino---10-piuma-p03286404.html",
+        "seo_product_id": "03286404",
+        "color_product_id": 495669854,
+        "color_name": "Borgogna",
+        "taglie": [
+            "S",
+            "M",
+            "L"
+        ],
+        "sku_taglia_map": {
+            "495667981": "S",
+            "495667982": "M",
+            "495667983": "L",
+            "495667984": "XL"
+        },
+        "attivo": true,
+        "data_aggiunta": "2026-08-21 14:35:30"
+    },
+    "prod_4_1787316024": {
+        "nome": "FELPA COMPATTA BOXY FIT CERNIERA",
+        "url_pagina": "https://www.zara.com/it/it/felpa-compatta-boxy-fit-cerniera-p01437417.html?v1=496154882",
+        "seo_product_id": "01437417",
+        "color_product_id": 496154882,
+        "color_name": "Grigio chiaro",
+        "taglie": [
+            "S",
+            "M"
+        ],
+        "sku_taglia_map": {
+            "496150765": "S",
+            "496150766": "M",
+            "496150767": "L",
+            "496150768": "XL"
+        },
+        "attivo": true,
+        "data_aggiunta": "2026-08-21 14:40:24"
+    },
+    "prod_6_1787316378": {
+        "nome": "JEANS FLARE FIT",
+        "url_pagina": "https://www.zara.com/it/it/jeans-flare-fit-p06688466.html",
+        "seo_product_id": "06688466",
+        "color_product_id": 525507662,
+        "color_name": "Rosso",
+        "taglie": [
+            "IT 44 (EUR 38)",
+            "IT 46 (EUR 40)"
+        ],
+        "sku_taglia_map": {
+            "525503829": "IT 40 (EUR 34)",
+            "525503830": "IT 42 (EUR 36)",
+            "525503824": "IT 44 (EUR 38)",
+            "525503825": "IT 46 (EUR 40)",
+            "525503826": "IT 48 (EUR 42)",
+            "525503827": "IT 50 (EUR 44)",
+            "525503828": "IT 52 (EUR 46)"
+        },
+        "attivo": true,
+        "data_aggiunta": "2026-08-21 14:46:18"
     }
 }
