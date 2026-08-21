@@ -55,6 +55,7 @@ NOTIFICA_SONORA_ATTIVA = False  # 🔕 Suono disattivato
 MOSTRA_RISPOSTA_COMPLETA = False
 COOKIES = "itxGeoData=IT|it|EUR|10704|40.0|9.0|0|0|0|0|"
 CONFIG_FILE = "zara_monitor_config.json"
+PRODOTTI_FILE = "prodotti.json"
 STORE_ID = "10704"
 
 # ============================================================
@@ -258,17 +259,18 @@ def valida_url_zara(url):
 # ============================================================
 
 def salva_configurazione():
-    """Salva prodotti E configurazione Telegram su file."""
+    """Salva prodotti e configurazione Telegram nei rispettivi file."""
     global prodotti_monitorati, telegram_config
 
-    config_completa = {
-        "telegram": telegram_config,
-        "prodotti": prodotti_monitorati
-    }
-
     try:
+        # Salva Telegram config
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(config_completa, f, indent=4, ensure_ascii=False)
+            json.dump({"telegram": telegram_config}, f, indent=4, ensure_ascii=False)
+            
+        # Salva prodotti separatamente
+        with open(PRODOTTI_FILE, 'w', encoding='utf-8') as f:
+            json.dump(prodotti_monitorati, f, indent=4, ensure_ascii=False)
+            
         print(f"    💾 Configurazione salvata!")
         return True
     except Exception as e:
@@ -374,47 +376,60 @@ def migra_prodotto_vecchio(info):
 
 
 def carica_configurazione():
-    """Carica prodotti E configurazione Telegram da file."""
+    """Carica prodotti e configurazione Telegram."""
     global prodotti_monitorati, telegram_config
 
-    if not os.path.exists(CONFIG_FILE):
-        print("    📂 Nessuna configurazione trovata, ne creo una nuova...")
-        return False
+    # 1. Carica Telegram config
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                config_completa = json.load(f)
+            if "telegram" in config_completa:
+                telegram_config.update(config_completa["telegram"])
+            
+            # Retrocompatibilità: se i prodotti sono ancora in CONFIG_FILE e PRODOTTI_FILE non esiste
+            if not os.path.exists(PRODOTTI_FILE):
+                if "prodotti" in config_completa:
+                    prodotti_monitorati = config_completa["prodotti"]
+                else:
+                    prodotti_monitorati = {k: v for k, v in config_completa.items() if k.startswith("prod_")}
+        except Exception as e:
+            print(f"    [!] Errore caricamento config: {e}")
 
-    try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            config_completa = json.load(f)
+    # Sovrascrivi con variabili d'ambiente (per GitHub Actions)
+    env_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    env_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    
+    if env_token:
+        telegram_config["bot_token"] = env_token
+    if env_chat_id:
+        telegram_config["chat_id"] = env_chat_id
 
-        # Carica configurazione Telegram
-        if "telegram" in config_completa:
-            telegram_config.update(config_completa["telegram"])
-            if telegram_config.get("bot_token"):
-                print(f"    📱 Telegram: configurazione caricata!")
+    if telegram_config.get("bot_token"):
+        print(f"    📱 Telegram: configurazione caricata!")
 
-        # Carica prodotti (supporta sia nuovo che vecchio formato)
-        if "prodotti" in config_completa:
-            prodotti_monitorati = config_completa["prodotti"]
-        else:
-            # Vecchio formato: il file contiene direttamente i prodotti
-            prodotti_monitorati = {k: v for k, v in config_completa.items() if k.startswith("prod_")}
+    # 2. Carica Prodotti
+    if os.path.exists(PRODOTTI_FILE):
+        try:
+            with open(PRODOTTI_FILE, 'r', encoding='utf-8') as f:
+                prodotti_monitorati = json.load(f)
+        except Exception as e:
+            print(f"    [!] Errore caricamento prodotti: {e}")
 
-        # Migra prodotti vecchi al nuovo formato
-        migrato = False
-        for prod_id, info in prodotti_monitorati.items():
-            if "sku_taglia_map" not in info or not info["sku_taglia_map"]:
-                prodotti_monitorati[prod_id] = migra_prodotto_vecchio(info)
-                migrato = True
+    # Migra prodotti vecchi al nuovo formato
+    migrato = False
+    for prod_id, info in prodotti_monitorati.items():
+        if "sku_taglia_map" not in info or not info["sku_taglia_map"]:
+            prodotti_monitorati[prod_id] = migra_prodotto_vecchio(info)
+            migrato = True
 
-        if migrato:
-            print("    💾 Salvataggio configurazione migrata...")
-            salva_configurazione()
+    # Se abbiamo dovuto migrare o dividere i file per la prima volta, salviamo
+    if migrato or (os.path.exists(CONFIG_FILE) and not os.path.exists(PRODOTTI_FILE) and prodotti_monitorati):
+        print("    💾 Salvataggio configurazione aggiornata...")
+        salva_configurazione()
 
-        print(f"    📂 Caricati {len(prodotti_monitorati)} prodotti")
-        return True
-
-    except Exception as e:
-        print(f"    [!] Errore caricamento: {e}")
-        return False
+    print(f"    📂 Caricati {len(prodotti_monitorati)} prodotti")
+    return True
 
 
 # ============================================================
@@ -1406,8 +1421,20 @@ def main():
 
 
 if __name__ == "__main__":
-    # Avvio con --auto → monitoraggio diretto
-    if len(sys.argv) > 1 and sys.argv[1] == "--auto":
+    # Avvio con --check → singolo controllo (per GitHub Actions)
+    if len(sys.argv) > 1 and sys.argv[1] == "--check":
+        print("🚀 Avvio controllo singolo (GitHub Actions)...\n")
+        carica_configurazione()
+
+        if not prodotti_monitorati:
+            print("⚠️ Nessun prodotto da controllare!")
+            sys.exit(0)
+
+        controlla_tutti_prodotti()
+        sys.exit(0)
+
+    # Avvio con --auto → monitoraggio diretto in loop
+    elif len(sys.argv) > 1 and sys.argv[1] == "--auto":
         print("🚀 Avvio rapido...\n")
         carica_configurazione()
 

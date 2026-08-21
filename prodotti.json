@@ -1,0 +1,41 @@
+{
+    "prod_1_1783843938": {
+        "nome": "BOMBER REVERSIBILE EFFETTO PELLE",
+        "url_pagina": "https://www.zara.com/it/it/bomber-reversibile-effetto-pelle-p00993401.html?v1=503421155&utm_campaign=productShare&utm_medium=mobile_sharing_Android&utm_source=red_social_movil",
+        "taglie": [
+            "S",
+            "M"
+        ],
+        "attivo": true,
+        "data_aggiunta": "2026-07-12 10:12:18",
+        "seo_product_id": "00993401",
+        "color_product_id": 495716582,
+        "color_name": "Grigio Antracite",
+        "sku_taglia_map": {
+            "495714434": "S",
+            "495714435": "M",
+            "495714436": "L",
+            "495714437": "XL",
+            "495714438": "XXL"
+        }
+    },
+    "prod_2_1783844128": {
+        "nome": "GIUBBOTTO 80% PIUMINO - 20% PIUMA WATER REPELLENT",
+        "url_pagina": "https://www.zara.com/it/it/giubbotto-80-piumino---20-piuma-water-repellent-p03411510.html?v1=503420082&utm_campaign=productShare&utm_medium=mobile_sharing_Android&utm_source=red_social_movil",
+        "taglie": [
+            "M"
+        ],
+        "attivo": true,
+        "data_aggiunta": "2026-07-12 10:15:28",
+        "seo_product_id": "03411510",
+        "color_product_id": 495716621,
+        "color_name": "Nero",
+        "sku_taglia_map": {
+            "495714666": "XS",
+            "495714668": "S",
+            "495714670": "M",
+            "495714673": "L",
+            "495714676": "XL"
+        }
+    }
+}
